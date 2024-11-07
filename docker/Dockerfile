@@ -1,10 +1,10 @@
-FROM nvidia/cuda:12.6.2-devel-ubuntu22.04 AS base
+ARG CUDA_VERSION
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
 
 # Install runtime dependencies
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
     build-essential \
-    libboost-all-dev \
     swig \
     git \
     cmake \
@@ -85,13 +85,14 @@ ENV RDKIT_DATA_DIR $RDBASE/Data
 ENV PYTHONPATH $PYTHONPATH:$RDBASE
 
 ENV NVIDIA_VISIBLE_DEVICES=all
-ENV CUDA_HOME /usr/local/cuda-12.6
 
 WORKDIR /home/appuser
 
 USER appuser
 # Install roshambo
 RUN git clone https://github.com/rashatwi/roshambo.git \
+# exporting CUDA_HOME from the CUDA_VERSION to keep only the first 2 element so 12.5.0 -> 12.5
+ && export CUDA_HOME=/usr/local/cuda-$(echo ${CUDA_VERSION} | cut -d. -f1,2) \
  && cd roshambo \
  && pip install ipython \
  && pip install .
