@@ -65,10 +65,19 @@ RUN wget https://github.com/rdkit/rdkit/archive/$RDKIT_VERSION.tar.gz && \
 
 FROM base AS roshambo-env
 
-# Copy rdkit installation from rdkit-build-env
-COPY --from=rdkit-build-env /root/rdkit-$RDKIT_VERSION /root/rdkit-$RDKIT_VERSION
+ARG USER_ID
+ARG GROUP_ID
 
-ENV RDBASE /root/rdkit-$RDKIT_VERSION
+# Create a group and user with the same UID and GID as the host user
+RUN groupadd -g ${GROUP_ID} appuser && \
+    useradd -m -u ${USER_ID} -g appuser -s /bin/bash appuser
+
+# Copy rdkit installation from rdkit-build-env
+COPY --from=rdkit-build-env /root/rdkit-$RDKIT_VERSION /home/appuser/rdkit-$RDKIT_VERSION
+
+RUN chown -R appuser:appuser /home/appuser/rdkit-$RDKIT_VERSION
+
+ENV RDBASE /home/appuser/rdkit-$RDKIT_VERSION
 ENV RDKIT_LIB_DIR $RDBASE/lib
 ENV LD_LIBRARY_PATH $RDBASE/lib
 ENV RDKIT_INCLUDE_DIR $RDBASE/Code
@@ -78,12 +87,18 @@ ENV PYTHONPATH $PYTHONPATH:$RDBASE
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV CUDA_HOME /usr/local/cuda-12.6
 
+WORKDIR /home/appuser
+
+USER appuser
 # Install roshambo
 RUN git clone https://github.com/rashatwi/roshambo.git \
  && cd roshambo \
  && pip install ipython \
- && pip install . \
- && python3 setup.py bdist_wheel
+ && pip install .
+
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+
+WORKDIR /home/appuser/roshambo
 
 ENTRYPOINT ["roshambo"]
 CMD ["-h"]
